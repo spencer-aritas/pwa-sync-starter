@@ -1,0 +1,19 @@
+
+# Node
+node_modules
+dist
+*.log
+web/dev-dist/
+web/dist/
+
+# Python
+__pycache__/
+.venv/
+server/*.db
+server/app/*.db
+
+# Misc
+.DS_Store
+.env
+.env.*
+jwt_private.key

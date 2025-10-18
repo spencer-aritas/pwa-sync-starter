@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import hashlib, json
 
-from server.app.db import get_db  # DuckDB dependency
+from ..db import get_db  # DuckDB dependency
 
 router = APIRouter(prefix="/baseline", tags=["baseline"])
 

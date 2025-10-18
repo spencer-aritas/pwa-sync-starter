@@ -24,6 +24,22 @@ class Mutation(BaseModel):
     clientTs: str
     deviceId: str
 
+def get_device_user(device_id: str, db: Session) -> dict:
+    """Get user context for device from registration"""
+    from ..models.db import get_db as get_sqlite_db
+    sqlite_db = get_sqlite_db()
+    
+    result = sqlite_db.execute("""
+        SELECT user_id, sf_user_id FROM device_registrations 
+        WHERE device_id = ?
+    """, (device_id,)).fetchone()
+    
+    sqlite_db.close()
+    
+    if result:
+        return {"userId": result[0], "sfUserId": result[1]}
+    return {"userId": None, "sfUserId": None}
+
 def get_db():
     db = SessionLocal()
     try:
@@ -94,8 +110,15 @@ class IntakePayload(BaseModel):
     intake: Dict[str, Any]  # { personLocalId?, programId, startDate, consentSigned, ... }
 
 @router.post('/sync/PersonAccount')
-def sync_person_account(data: PersonPayload):
+def sync_person_account(data: PersonPayload, db: Session = Depends(get_db)):
     data.person["uuid"] = data.localId
+    
+    # Get device user context
+    device_id = data.person.get('deviceId')
+    if device_id:
+        user_context = get_device_user(device_id, db)
+        data.person["createdByUserId"] = user_context.get("sfUserId")
+    
     """
     Creates/upserts a Salesforce Person Account and returns the mapping.
     Frontend expects: { localId, salesforceId }
@@ -111,7 +134,14 @@ def sync_person_account(data: PersonPayload):
         })
 
 @router.post('/sync/ProgramIntake')
-def sync_program_intake(data: IntakePayload):
+def sync_program_intake(data: IntakePayload, db: Session = Depends(get_db)):
+    
+    # Get device user context
+    device_id = data.intake.get('deviceId')
+    if device_id:
+        user_context = get_device_user(device_id, db)
+        data.intake["createdByUserId"] = user_context.get("sfUserId")
+    
     """
     Creates a Program Enrollment (or equivalent) in Salesforce.
     Frontend only needs: { ok: true } on success.

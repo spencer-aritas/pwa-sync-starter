@@ -1,17 +1,16 @@
 
-FROM node:20-alpine AS deps
-WORKDIR /usr/src/app
-COPY package.json package-lock.json* ./
-RUN npm ci
-
-FROM node:20-alpine AS build
-WORKDIR /usr/src/app
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY . .
-RUN npm run build
-
 FROM node:20-alpine
 WORKDIR /usr/src/app
-COPY --from=build /usr/src/app .
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --platform=linux --arch=x64
+
+# Copy source code
+COPY . .
+
+# Build the app
+RUN npm run build
+
 EXPOSE 5173 4173
-CMD [ "sh", "-c", "npm run dev & npm run preview" ]
+CMD [ "npm", "run", "dev", "--", "--host", "0.0.0.0" ]

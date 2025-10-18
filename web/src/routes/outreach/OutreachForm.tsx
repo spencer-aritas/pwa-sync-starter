@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { db } from '../../store/outreachStore';
 import { submitOutreachEncounter } from '../../api/outreachApi';
-import { normalizeEncounter, type OutreachEncounter } from '../../types/outreach';
+import { newEncounterDefaults, type OutreachEncounter, type OutreachEncounterPayload } from '../../types/outreach';
 
 export default function OutreachForm() {
-  const [form, setForm] = useState<OutreachEncounter>(normalizeEncounter({}));
+  const [form, setForm] = useState<OutreachEncounter>(newEncounterDefaults());
   const [status, setStatus] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const record = normalizeEncounter(form);   // ensures synced:false
+    const record = { ...form };
     const id = await db.encounters.add(record);
     setStatus('Saved locally');
 
     if (navigator.onLine) {
       try {
-        const res = await submitOutreachEncounter({ ...record, id });
+        const { id: _omit, synced: _omit2, ...payload } = record;
+        const res = await submitOutreachEncounter(payload as OutreachEncounterPayload);
         if (res.ok) {
-          await db.encounters.update(id!, { synced: true });
+          await db.encounters.update(id, { synced: true });
           setStatus('Synced to Salesforce ☁️');
         } else {
           setStatus(`Server rejected (${res.status}) — will retry`);
@@ -27,6 +28,8 @@ export default function OutreachForm() {
         setStatus('Network error — will retry later');
       }
     }
+    
+    setForm(newEncounterDefaults());
   }
 
   return (

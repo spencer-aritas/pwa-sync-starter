@@ -20,6 +20,8 @@ services:
     environment:
       - TZ=America/Denver
       - API_ORIGINS=https://outreachintake.aritasconsulting.com
+    ports:
+      - "8001:8000"
     volumes:
       - ./server:/app
       

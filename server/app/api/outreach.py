@@ -182,7 +182,7 @@ async def submit_outreach_encounter(payload: OutreachEncounterPayload):
         
         # Try to sync to Salesforce ProgramEnrollmentService if online
         try:
-            from ..salesforce.sf_client import _sf, _api
+            from ..salesforce.sf_client import ingest_encounter
             
             # Call Apex class ProgramEnrollmentService.ingestEncounter
             apex_payload = {
@@ -197,8 +197,7 @@ async def submit_outreach_encounter(payload: OutreachEncounterPayload):
                 "notes": payload.notes
             }
             
-            result = _sf(_api("/services/apexrest/ProgramEnrollmentService/ingestEncounter"), 
-                        method="POST", json=apex_payload)
+            result = ingest_encounter(apex_payload)
             
             # Mark as synced
             db = DuckClient()

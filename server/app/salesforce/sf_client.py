@@ -224,6 +224,11 @@ def create_person_account(person: Dict[str, Any]) -> str:
     res = _sf(_api("/sobjects/Account/"), method="POST", json=payload)
     return res["id"]
 
+def ingest_encounter(encounter_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Call the Apex REST endpoint to ingest a complete encounter"""
+    path = "/services/apexrest/ProgramEnrollmentService/ingestEncounter"
+    return _sf(path, method="POST", json=encounter_data)
+
 def create_interaction_summary(account_id: str, notes: str, uuid: str, created_by_user_id: str = None) -> str:
     """Create an InteractionSummary record for the Person Account"""
     from datetime import datetime
@@ -283,5 +288,6 @@ __all__ = [
     "create_interaction_summary",
     "upsert_person_by_uuid",
     "get_person_account_record_type_id",
+    "ingest_encounter",
     "SalesforceClient",
 ]

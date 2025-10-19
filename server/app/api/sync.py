@@ -120,16 +120,50 @@ def sync_person_account(data: PersonPayload, db: Session = Depends(get_db)):
         data.person["createdByUserId"] = user_context.get("sfUserId")
     
     """
-    Creates/upserts a Salesforce Person Account and returns the mapping.
+    Creates/upserts a Salesforce Person Account with idempotency via UUID__c.
     Frontend expects: { localId, salesforceId }
     """
     try:
-        sf_id = create_person_account(data.person)  # must return Account Id
+        # Check if Person Account already exists by UUID
+        from ..salesforce.sf_client import query_soql, upsert_person_by_uuid
+        
+        existing_query = f"SELECT Id FROM Account WHERE UUID__c = '{data.localId}' LIMIT 1"
+        existing = query_soql(existing_query)
+        
+        if existing.get('records'):
+            # Person Account exists, return existing ID
+            sf_id = existing['records'][0]['Id']
+            logger.info(f"Person Account already exists for UUID {data.localId}: {sf_id}")
+        else:
+            # Create new Person Account
+            from ..salesforce.sf_client import create_person_account
+            sf_id = create_person_account(data.person)
+            logger.info(f"Created new Person Account for UUID {data.localId}: {sf_id}")
+        
+        # Create InteractionSummary if notes are provided
+        notes = data.person.get('notes')
+        if notes and notes.strip():
+            try:
+                from ..salesforce.sf_client import create_interaction_summary
+                import uuid as uuid_lib
+                interaction_uuid = str(uuid_lib.uuid4())
+                
+                interaction_id = create_interaction_summary(
+                    account_id=sf_id,
+                    notes=notes,
+                    uuid=interaction_uuid,
+                    created_by_user_id=data.person.get('createdByUserId')
+                )
+                logger.info(f"Created InteractionSummary {interaction_id} for Account {sf_id}")
+            except Exception as e:
+                logger.warning(f"Failed to create InteractionSummary: {e}")
+                # Don't fail the whole request if InteractionSummary creation fails
+            
         return {"localId": data.localId, "salesforceId": sf_id}
     except Exception as e:
-        logger.error(f"SF create_person_account failed: {e}", exc_info=True)
+        logger.error(f"SF sync_person_account failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={
-            "message": "Failed to create Person Account in Salesforce.",
+            "message": "Failed to sync Person Account to Salesforce.",
             "error": str(e)
         })
 
@@ -156,6 +190,42 @@ def sync_program_intake(data: IntakePayload, db: Session = Depends(get_db)):
         })
     # For MVP/dev, succeed even without a live SF client
     return {"ok": True}
+# Program Enrollments endpoint
+@router.get('/person/{uuid}/enrollments')
+def get_person_enrollments(uuid: str):
+    """Get Program Enrollments for a Person Account by UUID"""
+    try:
+        from ..salesforce.sf_client import query_soql
+        
+        # Query Person Account and related Program Enrollments
+        soql = f"""
+            SELECT Id, Name, 
+                (SELECT Id, Name, Program__r.Name, Status__c, Start_Date__c, End_Date__c 
+                 FROM Program_Enrollments__r 
+                 ORDER BY Start_Date__c DESC)
+            FROM Account 
+            WHERE UUID__c = '{uuid}' 
+            LIMIT 1
+        """
+        
+        result = query_soql(soql)
+        
+        if not result.get('records'):
+            raise HTTPException(status_code=404, detail="Person not found")
+            
+        person = result['records'][0]
+        enrollments = person.get('Program_Enrollments__r', {}).get('records', [])
+        
+        return {
+            "personId": person['Id'],
+            "personName": person['Name'],
+            "enrollments": enrollments
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting enrollments for {uuid}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Add sync management endpoints
 @router.get('/sync/status')
 def get_sync_status():

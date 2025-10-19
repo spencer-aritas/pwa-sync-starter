@@ -198,7 +198,8 @@ def create_person_account(person: Dict[str, Any]) -> str:
         "Pronouns_Other_Description__pc": person.get("pronounsOther"),
         "Race_and_Ethnicity__pc": person.get("raceEthnicity"),
         "Veteran_Service__pc": person.get("veteranService"),
-    "UUID__c": person.get("uuid")
+        "Identified_Issues_Notes__pc": person.get("notes"),
+        "UUID__c": person.get("uuid")
     }
 
     # Remove null/blank AND drop any fields not present in this org (describe-driven)
@@ -221,6 +222,25 @@ def create_person_account(person: Dict[str, Any]) -> str:
 
     # Finally create in Salesforce
     res = _sf(_api("/sobjects/Account/"), method="POST", json=payload)
+    return res["id"]
+
+def create_interaction_summary(account_id: str, notes: str, uuid: str, created_by_user_id: str = None) -> str:
+    """Create an InteractionSummary record for the Person Account"""
+    from datetime import datetime
+    
+    payload = {
+        "AccountId": account_id,
+        "Date_of_Interaction__c": datetime.now().strftime("%Y-%m-%d"),
+        "InteractionPurpose": "Communication Log",
+        "MeetingNotes": notes,
+        "UUID__c": uuid
+    }
+    
+    # Add CreatedById if we have the user ID
+    if created_by_user_id:
+        payload["CreatedById"] = created_by_user_id
+    
+    res = _sf(_api("/sobjects/InteractionSummary/"), method="POST", json=payload)
     return res["id"]
 
 def upsert_person_by_uuid(uuid: str, fields: dict) -> str:
@@ -260,6 +280,7 @@ __all__ = [
     "sobject_update",
     "sobject_upsert_external",
     "create_person_account",
+    "create_interaction_summary",
     "upsert_person_by_uuid",
     "get_person_account_record_type_id",
     "SalesforceClient",

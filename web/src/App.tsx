@@ -3,11 +3,13 @@ import React, { useState, useEffect } from "react"
 import PersonForm from "./features/person/PersonForm"
 import { SyncStatus } from "./components/SyncStatus"
 import { UserSelection } from "./components/UserSelection"
+import { EnrollmentsPage } from "./components/EnrollmentsPage"
 import { isDeviceRegistered, getCurrentUser } from "./lib/salesforceAuth"
 
 export default function App() {
   const [showUserSelection, setShowUserSelection] = useState(false)
   const [currentUser, setCurrentUser] = useState(getCurrentUser())
+  const [currentPage, setCurrentPage] = useState<'intake' | 'enrollments'>('intake')
 
   useEffect(() => {
     if (!isDeviceRegistered()) {
@@ -24,6 +26,22 @@ export default function App() {
     return <UserSelection onUserSelected={handleUserSelectionComplete} />
   }
 
+  if (currentPage === 'enrollments') {
+    return (
+      <div>
+        <nav className="slds-p-around_small" style={{backgroundColor: 'white', borderBottom: '1px solid #e5e5e5'}}>
+          <button 
+            className="slds-button slds-button_neutral"
+            onClick={() => setCurrentPage('intake')}
+          >
+            ← Back to Client Intake
+          </button>
+        </nav>
+        <EnrollmentsPage />
+      </div>
+    )
+  }
+
   return (
     <div className="slds" style={{minHeight: '100vh', backgroundColor: '#f8f9fa'}}>
       <header className="slds-page-header slds-p-around_medium" style={{backgroundColor: 'white', borderBottom: '1px solid #e5e5e5'}}>
@@ -38,6 +56,14 @@ export default function App() {
             <p className="slds-page-header__info">
               {currentUser ? `${currentUser.name} • ` : ''}Capture client information for outreach services
             </p>
+          </div>
+          <div className="slds-media__figure">
+            <button 
+              className="slds-button slds-button_outline-brand"
+              onClick={() => setCurrentPage('enrollments')}
+            >
+              📋 View Enrollments
+            </button>
           </div>
         </div>
         <div className="slds-m-top_small">
